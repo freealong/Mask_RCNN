@@ -16,7 +16,21 @@ import tensorflow as tf
 import scipy.misc
 import skimage.color
 import skimage.io
+from skimage.draw import polygon
 
+def extract_mask_from_polygon(height, width, points):
+    """
+    extract mask from polygon
+    :param height: mask height
+    :param width: mask width
+    :param points: polygon points in [[x1, y1], [x2, y2]] format
+    :return: mask
+    """
+    np_points = np.array(points)
+    M = np.zeros((height, width), dtype=np.bool)
+    rr, cc = polygon(np_points[:, 1], np_points[:, 0])
+    M[rr, cc] = 1
+    return M
 
 ############################################################
 #  Bounding Boxes
