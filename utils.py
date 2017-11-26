@@ -14,6 +14,7 @@ import random
 import numpy as np
 import tensorflow as tf
 import scipy.misc
+import scipy.ndimage
 import skimage.color
 import skimage.io
 from skimage.draw import polygon

@@ -66,7 +66,10 @@ class WPIFConfig(Config):
     IMAGES_PER_GPU = 2
 
     # Uncomment to train on 8 GPUs (default is 1)
-    # GPU_COUNT = 8
+    GPU_COUNT = 4
+
+    IMAGE_MIN_DIM = 480
+    IMAGE_MAX_DIM = 640
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 1  # COCO has 80 classes
@@ -267,12 +270,18 @@ if __name__ == '__main__':
     elif args.model.lower() == "imagenet":
         # Start from ImageNet trained weights
         model_path = model.get_imagenet_weights()
+    elif args.model.lower() == "none":
+        model_path = ""
     else:
         model_path = args.model
 
     # Load weights
-    print("Loading weights ", model_path)
-    model.load_weights(model_path, by_name=True)
+    if len(model_path) > 1:
+        print("Loading weights ", model_path)
+        # exclude some weight if we have only two class(1bg + 1) and load weights from coco
+        #model.load_weights(model_path, by_name=True,
+        #                   exclude=["mrcnn_class_logits", "mrcnn_bbox_fc", "mrcnn_bbox", "mrcnn_mask"])
+        model.load_weights(model_path, by_name=True)
 
     # Train or evaluate
     if args.command == "train":
@@ -289,7 +298,7 @@ if __name__ == '__main__':
         print("Training network heads")
         model.train(dataset_train, dataset_train,
                     learning_rate=config.LEARNING_RATE,
-                    epochs=40,
+                    epochs=20,
                     layers='heads')
 
         # Training - Stage 2
@@ -297,7 +306,7 @@ if __name__ == '__main__':
         print("Training Resnet layer 4+")
         model.train(dataset_train, dataset_train,
                     learning_rate=config.LEARNING_RATE / 10,
-                    epochs=100,
+                    epochs=50,
                     layers='4+')
 
         # Training - Stage 3
@@ -305,7 +314,7 @@ if __name__ == '__main__':
         print("Training Resnet layer 3+")
         model.train(dataset_train, dataset_train,
                     learning_rate=config.LEARNING_RATE / 100,
-                    epochs=200,
+                    epochs=100,
                     layers='all')
 
     elif args.command == "evaluate":

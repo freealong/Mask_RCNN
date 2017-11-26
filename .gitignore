@@ -1,6 +1,8 @@
 .ipynb_checkpoints/
 __pycache__/
-mask_rcnn_coco.h5
 .idea/*
 .venv/*
 *.pyc
+*.h5
+logs/*
+test_images/*
