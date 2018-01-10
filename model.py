@@ -2153,6 +2153,77 @@ class MaskRCNN():
         windows = np.stack(windows)
         return molded_images, image_metas, windows
 
+    def unmold_and_filter_detections(self, detections, mrcnn_mask, image_shape, window, min_score):
+        """Reformats the detections of one image from the format of the neural
+        network output to a format suitable for use in the rest of the
+        application.
+
+        detections: [N, (y1, x1, y2, x2, class_id, score)]
+        mrcnn_mask: [N, height, width, num_classes]
+        image_shape: [height, width, depth] Original size of the image before resizing
+        window: [y1, x1, y2, x2] Box in the image where the real image is
+                excluding the padding.
+
+        Returns:
+        boxes: [N, (y1, x1, y2, x2)] Bounding boxes in pixels
+        class_ids: [N] Integer class IDs for each bounding box
+        scores: [N] Float probability scores of the class_id
+        masks: [height, width, num_instances] Instance masks
+        """
+        # How many detections do we have?
+        # Detections array is padded with zeros. Find the first class_id == 0.
+        zero_ix = np.where(detections[:, 4] == 0)[0]
+        N = zero_ix[0] if zero_ix.shape[0] > 0 else detections.shape[0]
+
+        # Extract boxes, class_ids, scores, and class-specific masks
+        boxes = detections[:N, :4]
+        class_ids = detections[:N, 4].astype(np.int32)
+        scores = detections[:N, 5]
+        masks = mrcnn_mask[np.arange(N), :, :, class_ids]
+
+        # Filter out detections with zero area. Often only happens in early
+        # stages of training when the network weights are still a bit random.
+        exclude_ix = np.where((boxes[:, 2] - boxes[:, 0]) * (boxes[:, 2] - boxes[:, 0]) <= 0)[0]
+        if exclude_ix.shape[0] > 0:
+            boxes = np.delete(boxes, exclude_ix, axis=0)
+            class_ids = np.delete(class_ids, exclude_ix, axis=0)
+            scores = np.delete(scores, exclude_ix, axis=0)
+            masks = np.delete(masks, exclude_ix, axis=0)
+            N = class_ids.shape[0]
+            # Filter out score < min_score
+        exclude_ix = np.where(scores < min_score)[0]
+        if exclude_ix.shape[0] > 0:
+            boxes = np.delete(boxes, exclude_ix, axis=0)
+            class_ids = np.delete(class_ids, exclude_ix, axis=0)
+            scores = np.delete(scores, exclude_ix, axis=0)
+            masks = np.delete(masks, exclude_ix, axis=0)
+            N = class_ids.shape[0]
+
+        # Compute scale and shift to translate coordinates to image domain.
+        h_scale = image_shape[0] / (window[2] - window[0])
+        w_scale = image_shape[1] / (window[3] - window[1])
+        scale = min(h_scale, w_scale)
+        shift = window[:2]  # y, x
+        scales = np.array([scale, scale, scale, scale])
+        shifts = np.array([shift[0], shift[1], shift[0], shift[1]])
+
+        # Translate bounding boxes to image domain
+        boxes = np.multiply(boxes - shifts, scales).astype(np.int32)
+
+        # Resize masks to original image size and set boundary threshold.
+
+        resized_masks = []
+        for i in range(N):
+            # Convert neural network mask to full size mask
+            threshold = 0.5
+            y1, x1, y2, x2 = boxes[i]
+            resized_mask = scipy.misc.imresize(
+                masks[i], (y2 - y1, x2 - x1), interp='bilinear').astype(np.float32) / 255.0
+            resized_mask = np.where(resized_mask >= threshold, 1, 0).astype(np.uint8)
+            resized_masks.append(resized_mask)
+
+        return boxes, class_ids, scores, resized_masks
+
     def unmold_detections(self, detections, mrcnn_mask, image_shape, window):
         """Reformats the detections of one image from the format of the neural
         network output to a format suitable for use in the rest of the
@@ -2212,6 +2283,22 @@ class MaskRCNN():
                     if full_masks else np.empty((0,) + masks.shape[1:3])
         
         return boxes, class_ids, scores, full_masks
+
+    def single_detect(self, image, min_socre=0.9):
+        assert self.mode == "inference", "Create model in inference mode."
+        molded_images, image_metas, windows = self.mold_inputs([image])
+        # Run object detection
+        detections, mrcnn_class, mrcnn_bbox, mrcnn_mask, \
+        rois, rpn_class, rpn_bbox = \
+            self.keras_model.predict([molded_images, image_metas], verbose=0)
+         # Process detections
+        final_rois, final_class_ids, final_scores, final_masks =\
+            self.unmold_and_filter_detections(detections[0], mrcnn_mask[0],
+                                              image.shape, windows[0], min_socre)
+
+        result = {"rois": final_rois, "class_ids": final_class_ids,
+                  "scores": final_scores, "masks": final_masks}
+        return result
 
     def detect(self, images, verbose=0):
         """Runs the detection pipeline.
