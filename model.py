@@ -1127,7 +1127,17 @@ def load_image_gt(dataset, config, image_id, augment=False,
         defined in MINI_MASK_SHAPE.
     """
     # Load image and mask
-    image = dataset.load_image(image_id)
+    if config.IMAGE_TYPE == 'RGBHHA':
+        rgb = dataset.load_image(image_id)
+        hha = dataset.load_hha(image_id)
+        image = np.dstack([rgb, hha])
+    elif config.IMAGE_TYPE == 'HHA':
+        image = dataset.load_hha(image_id)
+    elif config.IMAGE_TYPE == 'RGB':
+        image = dataset.load_image(image_id)
+    else:
+        assert False, 'Unrecognized image type: ' + config.IMAGE_TYPE
+
     mask, class_ids = dataset.load_mask(image_id)
     shape = image.shape
     image, window, scale, padding = utils.resize_image(

@@ -32,6 +32,7 @@ import time
 import numpy as np
 import scipy.io
 from PIL import Image
+import skimage.io
 
 
 from config import Config
@@ -71,6 +72,7 @@ class APCConfig(Config):
 
     IMAGE_MIN_DIM = 480
     IMAGE_MAX_DIM = 640
+    IMAGE_TYPE = 'RGBHHA'
 
     # Number of classes (including background)
     NUM_CLASSES = 39 + 1  # COCO has 80 classes
@@ -90,7 +92,7 @@ class APCDataset(utils.Dataset):
         # get all scenes path
         scenes = scipy.io.loadmat(os.path.join(dataset_dir, 'scenes.mat'))['scenes']
         scenes_list = []
-        for i in range(30):#scenes.shape[1]):
+        for i in range(scenes.shape[1]):
             scenes_list.append(os.path.join(dataset_dir, scenes[0, i][0]))
 
         # get all class names
@@ -108,6 +110,7 @@ class APCDataset(utils.Dataset):
                     example_name = example[:12]
                     image_id = image_id + 1
                     image_path = os.path.join(scene, example_name + '.color.png')
+                    hha_path = os.path.join(scene, example_name + '.hha.png')
                     im = Image.open(image_path)
                     width, height = im.size
                     annotations = []
@@ -122,7 +125,19 @@ class APCDataset(utils.Dataset):
                     self.add_image('APC', image_id=image_id,
                                    path=image_path,
                                    width=width, height=height,
-                                   annotations=annotations)
+                                   annotations=annotations,
+                                   hha_path=hha_path)
+
+    def load_hha(self, image_id):
+        """
+        Load the specified HHA image
+        :param image_id:
+        :return: a [H, W, 3] Numpy array
+        """
+        # Load HHA image
+        hha = skimage.io.imread(self.image_info[image_id]['hha_path'])
+        assert hha.ndim == 3
+        return hha
 
     def load_mask(self, image_id):
         """Load instance masks for the given image.

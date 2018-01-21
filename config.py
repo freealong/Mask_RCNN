@@ -86,6 +86,8 @@ class Config(object):
     # be satisfied together the IMAGE_MAX_DIM is enforced.
     IMAGE_MIN_DIM = 800
     IMAGE_MAX_DIM = 1024
+    IMAGE_TYPE_CHANNEL_MAP = {'RGB': 3, 'HHA': 3, 'RGBHHA': 6}
+    IMAGE_TYPE = 'RGB'
     # If True, pad images with zeros such that they're (max_dim by max_dim)
     IMAGE_PADDING = True  # currently, the False option is not supported
 
@@ -141,8 +143,9 @@ class Config(object):
         self.BATCH_SIZE = self.IMAGES_PER_GPU * self.GPU_COUNT
 
         # Input image size
+        self.IMAGE_CHANNEL = self.IMAGE_TYPE_CHANNEL_MAP[self.IMAGE_TYPE]
         self.IMAGE_SHAPE = np.array(
-            [self.IMAGE_MAX_DIM, self.IMAGE_MAX_DIM, 3])
+            [self.IMAGE_MAX_DIM, self.IMAGE_MAX_DIM, self.IMAGE_CHANNEL])
 
         # Compute backbone size from input image size
         self.BACKBONE_SHAPES = np.array(
