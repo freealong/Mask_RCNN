@@ -92,7 +92,9 @@ class Config(object):
     IMAGE_PADDING = True  # currently, the False option is not supported
 
     # Image mean (RGB)
-    MEAN_PIXEL = np.array([123.7, 116.8, 103.9])
+    MEAN_RGB = np.array([123.7, 116.8, 103.9])
+    # Image mean (HHA)
+    MEAN_HHA = np.array([100, 100, 100])
 
     # Number of ROIs per image to feed to classifier/mask heads
     TRAIN_ROIS_PER_IMAGE = 128  # TODO: paper uses 512

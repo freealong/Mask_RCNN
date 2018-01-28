@@ -2504,13 +2504,22 @@ def mold_image(images, config):
     the mean pixel and converts it to float. Expects image
     colors in RGB order.
     """
-    return images.astype(np.float32) - config.MEAN_PIXEL
+    if config.IMAGE_TYPE == 'RGB':
+        return images.astype(np.float32) - config.MEAN_RGB
+    elif config.IMAGE_TYPE == 'HHA':
+        return images.astype(np.float32) - config.MEAN_HHA
+    elif config.IMAGE_TYPE == 'RGBHHA':
+        return images.astype(np.float32) - np.append(config.MEAN_RGB, config.MEAN_HHA)
 
 
 def unmold_image(normalized_images, config):
     """Takes a image normalized with mold() and returns the original."""
-    return (normalized_images + config.MEAN_PIXEL).astype(np.uint8)
-
+    if config.IMAGE_TYPE == 'RGB':
+        return (normalized_images + config.MEAN_RGB).astype(np.uint8)
+    elif config.IMAGE_TYPE == 'HHA':
+        return (normalized_images + config.MEAN_HHA).astype(np.uint8)
+    elif config.IMAGE_TYPE == 'RGBHHA':
+        return (normalized_images + np.append(config.MEAN_RGB, config.MEAN_HHA)).astype(np.uint8)
 
 ############################################################
 #  Miscellenous Graph Functions

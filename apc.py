@@ -43,7 +43,7 @@ import model as modellib
 ROOT_DIR = os.getcwd()
 
 # Path to trained weights file
-WPIF_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_apc.h5")
+APC_MODEL_PATH = os.path.join(ROOT_DIR, "mask_rcnn_apc.h5")
 
 # Directory to save logs and model checkpoints, if not provided
 # through the command line argument --logs
@@ -54,7 +54,7 @@ DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 #  Configurations
 ############################################################
 
-# WPIF for workpiece in factory
+# APC for workpiece in factory
 class APCConfig(Config):
     """Configuration for training on MS COCO.
     Derives from the base Config class and overrides values specific
@@ -68,7 +68,7 @@ class APCConfig(Config):
     IMAGES_PER_GPU = 2
 
     # Uncomment to train on 8 GPUs (default is 1)
-    GPU_COUNT = 4
+    GPU_COUNT = 2
 
     IMAGE_MIN_DIM = 480
     IMAGE_MAX_DIM = 640
@@ -101,7 +101,7 @@ class APCDataset(utils.Dataset):
             self.class_names.append(objects[i][0][0][0][0][0])
             self.add_class("APC", i+1, self.class_names[i+1])
 
-        image_id = 0
+        image_id = -1 
         for scene in scenes_list:
             for example in os.listdir(scene):
                 if example[-4:] == '.mat':
@@ -122,6 +122,8 @@ class APCDataset(utils.Dataset):
                         # bbox = [y1, x1, y2, x2] and 1 <= y <= height
                         annotation['bbox'] = label[0, i][0, 0][3][0] - 1
                         annotations.append(annotation)
+                    if len(annotations) == 0:
+                        continue
                     self.add_image('APC', image_id=image_id,
                                    path=image_path,
                                    width=width, height=height,
@@ -151,7 +153,7 @@ class APCDataset(utils.Dataset):
             one mask per instance.
         class_ids: a 1D array of class IDs of the instance masks.
         """
-        # If not a WPIF image, delegate to parent class.
+        # If not a APC image, delegate to parent class.
         image_info = self.image_info[image_id]
         if image_info["source"] != "APC":
             return super(self.__class__).load_mask(image_id)
@@ -198,11 +200,11 @@ class APCDataset(utils.Dataset):
             super(self.__class__).image_reference(self, image_id)
 
 ############################################################
-#  WPIF Evaluation
+#  APC Evaluation
 ############################################################
 def evaluate_apc(model, config, dataset, eval_type="bbox", limit=0):
     """
-    Evaluation on WPIF dataset, using VOC-Style mAP # IoU=0.5 for bbox
+    Evaluation on APC dataset, using VOC-Style mAP # IoU=0.5 for bbox
     @TODO: add segment evaluation
     :param model:
     :param config:
@@ -299,7 +301,7 @@ if __name__ == '__main__':
 
     # Select weights file to load
     if args.model.lower() == "apc":
-        model_path = WPIF_MODEL_PATH
+        model_path = APC_MODEL_PATH
     elif args.model.lower() == "last":
         # Find last trained weights
         model_path = model.find_last()[1]
